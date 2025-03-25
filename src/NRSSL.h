@@ -24,8 +24,13 @@ class NRSSL {
     double convert32TypeToDouble(uint32_t value, Type type);
     double convert64TypeToDouble(uint64_t value, Type type);
 
+    char *convertBinaryStringToString(const char *binaryString, Type type);
+
     uint64_t binaryStringToUint64(const char *binaryString);
     uint32_t binaryStringToUint32(const char *binaryString);
+
+    void uint32ToBinaryString(uint32_t value, char *binaryString);
+    void uint64ToBinaryString(uint64_t value, char *binaryString);
 
   private:
     jclass initializeJClass(const char *class_name);

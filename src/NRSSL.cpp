@@ -112,10 +112,49 @@ uint32_t NRSSL::convertFloatTo32Type(float value, Type type) {
 
     const char *bitsStr = env->GetStringUTFChars(bits, nullptr);
 
+    std::cout << "Bits: " << bitsStr << std::endl;
+
     return binaryStringToUint32(bitsStr);
 }
 
-double NRSSL::convert32TypeToDouble(uint32_t value, Type type) { return 0; }
+double NRSSL::convert32TypeToDouble(uint32_t value, Type type) {
+
+    jclass positClass = initializeJClass(NRSSL_JNI_STRINGS::POSIT::value);
+    jclass positBClass = initializeJClass(NRSSL_JNI_STRINGS::POSITB::value);
+
+    jmethodID defaultRoundingMethod =
+        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::DEFAULTROUNDING::value,
+                   NRSSL_JNI_STRINGS::POSIT::DEFAULTROUNDING::R_ROUNDINGTYPE::value, true);
+
+    jmethodID defaultSizeMethod =
+        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::DEFAULTSIZE::value,
+                   NRSSL_JNI_STRINGS::POSIT::DEFAULTSIZE::R_INT::value, true);
+
+    jmethodID defaultExponentSizeMethod =
+        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::DEFAULTEXPONENTSIZE::value,
+                   NRSSL_JNI_STRINGS::POSIT::DEFAULTEXPONENTSIZE::R_INT::value, true);
+
+    jmethodID applyMethod = getJMethod(
+        positClass, NRSSL_JNI_STRINGS::POSIT::APPLY::value,
+        NRSSL_JNI_STRINGS::POSIT::APPLY::STRING_INT_INT_ROUNDINGTYPE_R_POSIT_B::value, true);
+
+    jmethodID toDoubleMethod = getJMethod(positBClass, NRSSL_JNI_STRINGS::POSITB::TODOUBLE::value,
+                                          NRSSL_JNI_STRINGS::POSITB::TODOUBLE::R_DOUBLE::value);
+
+    jobject roundingType = env->CallStaticObjectMethod(positClass, defaultRoundingMethod);
+    jint size = env->CallStaticIntMethod(positClass, defaultSizeMethod);
+    jint exponentSize = env->CallStaticIntMethod(positClass, defaultExponentSizeMethod);
+
+    char binaryString[33];
+    uint32ToBinaryString(value, binaryString);
+
+    jobject posit_1 = env->CallStaticObjectMethod(
+        positClass, applyMethod, env->NewStringUTF(binaryString), exponentSize, size, roundingType);
+
+    jdouble doubleValue = env->CallDoubleMethod(posit_1, toDoubleMethod);
+
+    return doubleValue;
+}
 
 double NRSSL::convert64TypeToDouble(uint64_t value, Type type) { return 0; }
 
@@ -141,4 +180,18 @@ uint32_t NRSSL::binaryStringToUint32(const char *binaryString) {
 
     uint32_t value = binaryStringToUint64(binaryString);
     return value;
+}
+
+void NRSSL::uint32ToBinaryString(uint32_t value, char *binaryString) {
+    for (int i = 31; i >= 0; i--) {
+        binaryString[31 - i] = ((value >> i) & 1) + '0';
+    }
+    binaryString[32] = '\0';
+}
+
+void NRSSL::uint64ToBinaryString(uint64_t value, char *binaryString) {
+    for (int i = 63; i >= 0; i--) {
+        binaryString[63 - i] = ((value >> i) & 1) + '0';
+    }
+    binaryString[64] = '\0';
 }
