@@ -1,5 +1,6 @@
 #include "NRSSL.h"
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <jni.h>
 
@@ -19,7 +20,10 @@ NRSSL::NRSSL() {
         std::cout << "NRSSL_JARS: " << jarsPath << std::endl;
 
         options[0].optionString = new char[1024];
-        snprintf(options[0].optionString, 1024, "-Djava.class.path=%s", jarsPath);
+        snprintf(options[0].optionString, 1024,
+                 "-Djava.class.path=%s/scala-library-2.13.8.jar"
+                 ":%s/nrssl.jar",
+                 jarsPath, jarsPath);
 
         vm_args.version = JNI_VERSION_10;
         vm_args.nOptions = 1;
@@ -33,17 +37,25 @@ NRSSL::NRSSL() {
         delete[] options[0].optionString;
         delete[] options;
     } else {
-        jvm->AttachCurrentThread((void **)&env, nullptr);
+        if (jvm->GetEnv((void **)&env, JNI_VERSION_10) != JNI_OK) {
+            if (jvm->AttachCurrentThread((void **)&env, nullptr) != JNI_OK) {
+                std::cerr << "Failed to attach current thread to Java VM" << std::endl;
+                jvm->DestroyJavaVM();
+                exit(1);
+            }
+            shouldDetach = true;
+        }
     }
 }
 
 NRSSL::~NRSSL() {
-    if (env) {
+    if (shouldDetach) {
         jvm->DetachCurrentThread();
     }
 }
 
 void NRSSL::shutdown() {
+    std::cout << "Shutting down NRSSL" << std::endl;
     if (jvm) {
         jvm->DestroyJavaVM();
     }
@@ -80,7 +92,53 @@ jmethodID NRSSL::getJMethod(jclass clazz, const char *method_name, const char *s
 }
 
 uint64_t NRSSL::convertDoubleTo64Type(double value, Type type) { return 0; }
-uint32_t NRSSL::convertFloatTo32Type(float value, Type type) { return 0; }
+
+uint32_t NRSSL::convertFloatTo32Type(float value, Type type) {
+
+    jclass positClass = initializeJClass(NRSSL_JNI_STRINGS::POSIT::value);
+    jclass positBClass = initializeJClass(NRSSL_JNI_STRINGS::POSITB::value);
+
+    jmethodID applyMethod =
+        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::APPLY::value,
+                   NRSSL_JNI_STRINGS::POSIT::APPLY::FLOAT_R_POSITB::value, true);
+
+    jobject positB = env->CallObjectMethod(positClass, applyMethod, value);
+
+    jmethodID getBitsMethod =
+        getJMethod(positBClass, NRSSL_JNI_STRINGS::POSITB::TOBINARYSTRING::value,
+                   NRSSL_JNI_STRINGS::POSITB::TOBINARYSTRING::R_STRING::value);
+
+    jstring bits = (jstring)env->CallObjectMethod(positB, getBitsMethod);
+
+    const char *bitsStr = env->GetStringUTFChars(bits, nullptr);
+
+    return binaryStringToUint32(bitsStr);
+}
 
 double NRSSL::convert32TypeToDouble(uint32_t value, Type type) { return 0; }
+
 double NRSSL::convert64TypeToDouble(uint64_t value, Type type) { return 0; }
+
+uint64_t NRSSL::binaryStringToUint64(const char *binaryString) {
+    if (strlen(binaryString) > 64) {
+        std::cerr << "Binary string is longer than 64 bits" << std::endl;
+        exit(1);
+    }
+
+    uint64_t value = 0;
+    for (int i = 0; i < strlen(binaryString); i++) {
+        value = (value << 1) | (binaryString[i] - '0');
+    }
+
+    return value;
+}
+
+uint32_t NRSSL::binaryStringToUint32(const char *binaryString) {
+    if (strlen(binaryString) > 32) {
+        std::cerr << "Binary string is longer than 32 bits" << std::endl;
+        exit(1);
+    }
+
+    uint32_t value = binaryStringToUint64(binaryString);
+    return value;
+}
