@@ -20,7 +20,7 @@ class NRSSL {
     static void shutdown();
 
     template <typename T>
-    typename std::enable_if<std::is_unsigned<T>::value, T>::type convertDoubleToUint(float value,
+    typename std::enable_if<std::is_unsigned<T>::value, T>::type convertDoubleToUint(double value,
                                                                                      Type type);
 
     template <typename T>

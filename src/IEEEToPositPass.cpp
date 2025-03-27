@@ -28,13 +28,45 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
         bool Modified = false;
 
         for (auto &Global : M.globals()) {
+
             if (Global.hasInitializer()) {
                 Constant *Initializer = Global.getInitializer();
+
                 if (ConstantFP *FpConst = dyn_cast<ConstantFP>(Initializer)) {
                     Constant *PositConst = convertConstantFP(FpConst, M.getContext());
                     if (PositConst && PositConst != FpConst) {
                         Global.setInitializer(PositConst);
                         Modified = true;
+                    }
+                }
+
+                else if (ConstantDataArray *ArrayConst = dyn_cast<ConstantDataArray>(Initializer)) {
+                    if (ArrayConst->getType()->getElementType()->isFloatingPointTy()) {
+                        SmallVector<Constant *, 16> ConvertedElements;
+                        bool ArrayModified = false;
+
+                        for (unsigned i = 0; i < ArrayConst->getNumElements(); ++i) {
+                            if (ConstantFP *FpElement =
+                                    dyn_cast<ConstantFP>(ArrayConst->getElementAsConstant(i))) {
+                                Constant *PositElement =
+                                    convertConstantFP(FpElement, M.getContext());
+                                if (PositElement && PositElement != FpElement) {
+                                    ConvertedElements.push_back(PositElement);
+                                    ArrayModified = true;
+                                } else {
+                                    ConvertedElements.push_back(FpElement);
+                                }
+                            } else {
+                                ConvertedElements.push_back(ArrayConst->getElementAsConstant(i));
+                            }
+                        }
+
+                        if (ArrayModified) {
+                            Constant *NewArrayConst =
+                                ConstantArray::get(ArrayConst->getType(), ConvertedElements);
+                            Global.setInitializer(NewArrayConst);
+                            Modified = true;
+                        }
                     }
                 }
             }

@@ -7,7 +7,7 @@
 #include <type_traits>
 
 template <typename T>
-typename std::enable_if<std::is_unsigned<T>::value, T>::type NRSSL::convertDoubleToUint(float value,
+typename std::enable_if<std::is_unsigned<T>::value, T>::type NRSSL::convertDoubleToUint(double value,
                                                                                         Type type) {
 
     jclass positClass = initializeJClass(JNI_TYPES::POSIT);
