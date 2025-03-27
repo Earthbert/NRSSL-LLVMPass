@@ -9,7 +9,7 @@ int main(int argc, char const *argv[]) {
 
     uint32_t value = *(uint32_t *)&a;
 
-    std::cout << nrssl.convert32TypeToDouble(value, POSIT32) << std::endl;
+    std::cout << nrssl.convertUintToDouble(value, POSIT) << std::endl;
 
     return 0;
 }

@@ -1,9 +1,10 @@
-#pragma once
+#ifndef NRSSL_H
+#define NRSSL_H
 
-#include <cstdint>
 #include <jni.h>
+#include <string>
 
-enum Type { POSIT32, POSIT64 };
+enum Type { POSIT };
 
 class NRSSL {
 
@@ -18,79 +19,58 @@ class NRSSL {
 
     static void shutdown();
 
-    uint64_t convertDoubleTo64Type(double value, Type type);
-    uint32_t convertFloatTo32Type(float value, Type type);
+    template <typename T>
+    typename std::enable_if<std::is_unsigned<T>::value, T>::type convertDoubleToUint(float value,
+                                                                                     Type type);
 
-    double convert32TypeToDouble(uint32_t value, Type type);
-    double convert64TypeToDouble(uint64_t value, Type type);
+    template <typename T>
+    typename std::enable_if<std::is_unsigned<T>::value, T>::type
+    binaryStringToUint(std::string binaryString);
 
-    char *convertBinaryStringToString(const char *binaryString, Type type);
+    template <typename T, typename std::enable_if<std::is_unsigned<T>::value, bool>::type = true>
+    double convertUintToDouble(T value, Type type);
 
-    uint64_t binaryStringToUint64(const char *binaryString);
-    uint32_t binaryStringToUint32(const char *binaryString);
+    template <typename T, typename std::enable_if<std::is_unsigned<T>::value, bool>::type = true>
+    std::string UintToBinaryString(T value);
 
-    void uint32ToBinaryString(uint32_t value, char *binaryString);
-    void uint64ToBinaryString(uint64_t value, char *binaryString);
+    std::string convertBinaryStringToString(std::string binaryString, Type type);
 
   private:
-    jclass initializeJClass(const char *class_name);
-    jmethodID getJMethod(jclass clazz, const char *method_name, const char *signature,
+    jclass initializeJClass(std::string class_name);
+    jmethodID getJMethod(jclass clazz, std::string method_name, std::string signature,
                          bool is_static = false);
+
+    std::string createSignature(std::string returnType, std::initializer_list<std::string> args);
 };
 
-namespace NRSSL_JNI_STRINGS {
+namespace JNI_TYPES {
+std::string const VOID = "V";
+std::string const BOOLEAN = "Z";
+std::string const INT = "I";
+std::string const SHORT = "S";
+std::string const BYTE = "B";
+std::string const LONG = "J";
+std::string const FLOAT = "F";
+std::string const DOUBLE = "D";
 
-namespace POSIT {
-    const char *const value = "ro/upb/nrs/sl/Posit";
-    namespace APPLY {
-        const char *const value = "apply";
-        namespace DOUBLE_R_POSITB {
-            const char *const value = "(D)Lro/upb/nrs/sl/Posit_B;";
-        }
-        namespace STRING_INT_INT_ROUNDINGTYPE_R_POSIT_B {
-            const char *const value =
-                "(Ljava/lang/String;IILro/upb/nrs/sl/RoundingType;)Lro/upb/nrs/sl/Posit_B;";
-        }
-        namespace DOUBLE_INT_INT_ROUNDINGTYPE_R_POSIT_B {
-            const char *const value = "(DILro/upb/nrs/sl/RoundingType;)Lro/upb/nrs/sl/Posit_B;";
-        }
-        namespace FLOAT_R_POSITB {
-            const char *const value = "(F)Lro/upb/nrs/sl/Posit_B;";
-        }
-    } // namespace APPLY
-    namespace DEFAULTROUNDING {
-        const char *const value = "default_rounding";
-        namespace R_ROUNDINGTYPE {
-            const char *const value = "()Lro/upb/nrs/sl/RoundingType;";
-        }
-    } // namespace DEFAULTROUNDING
-    namespace DEFAULTSIZE {
-        const char *const value = "default_size";
-        namespace R_INT {
-            const char *const value = "()I";
-        }
-    } // namespace DEFAULTSIZE
-    namespace DEFAULTEXPONENTSIZE {
-        const char *const value = "default_exponent_size";
-        namespace R_INT {
-            const char *const value = "()I";
-        }
-    } // namespace DEFAULTEXPONENTSIZE
-} // namespace POSIT
+std::string const STRING = "java/lang/String";
+std::string const OBJECT = "java/lang/Object";
 
-namespace POSITB {
-    const char *const value = "ro/upb/nrs/sl/Posit_B";
-    namespace TOBINARYSTRING {
-        const char *const value = "toBinaryString";
-        namespace R_STRING {
-            const char *const value = "()Ljava/lang/String;";
-        }
-    } // namespace TOBINARYSTRING
-    namespace TODOUBLE {
-        const char *const value = "toDouble";
-        namespace R_DOUBLE {
-            const char *const value = "()D";
-        }
-    } // namespace TODOUBLE
-} // namespace POSITB
-} // namespace NRSSL_JNI_STRINGS
+std::string const POSIT = "ro/upb/nrs/sl/Posit";
+std::string const POSIT_B = "ro/upb/nrs/sl/Posit_B";
+std::string const ROUNDING_TYPE = "ro/upb/nrs/sl/RoundingType";
+} // namespace JNI_TYPES
+
+namespace JNI_METHODS {
+std::string const APPLY = "apply";
+std::string const TO_BINARY_STRING = "toBinaryString";
+std::string const TO_DOUBLE = "toDouble";
+
+std::string const DEFAULTROUNDING = "default_rounding";
+std::string const DEFAULTSIZE = "default_size";
+std::string const DEFAULTEXPSIZE = "default_exponent_size";
+} // namespace JNI_METHODS
+
+#include "NRSSL.tpp"
+
+#endif // NRSSL_H

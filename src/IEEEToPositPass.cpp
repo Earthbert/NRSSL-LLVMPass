@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstdlib>
 #include <jni.h>
 #include <llvm/IR/Constants.h>
@@ -55,7 +56,7 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
             float IeeeValue;
             memcpy(&IeeeValue, OldBits.getRawData(), sizeof(float));
 
-            uint32_t PositValue = nrssl.convertFloatTo32Type(IeeeValue, POSIT32);
+            uint32_t PositValue = nrssl.convertDoubleToUint<uint32_t>(IeeeValue, POSIT);
             APInt NewBits(32, PositValue);
 
             APFloat NewAPF(APFloat::IEEEsingle(), NewBits);
@@ -66,7 +67,7 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
             double IeeeValue;
             memcpy(&IeeeValue, OldBits.getRawData(), sizeof(double));
 
-            uint64_t PositValue = nrssl.convertDoubleTo64Type(IeeeValue, POSIT64);
+            uint64_t PositValue = nrssl.convertDoubleToUint<uint64_t>(IeeeValue, POSIT);
             APInt NewBits(64, PositValue);
 
             APFloat NewAPF(APFloat::IEEEdouble(), NewBits);

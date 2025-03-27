@@ -1,15 +1,18 @@
 #include "NRSSL.h"
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <jni.h>
+#include <string>
+#include <vector>
 
 JavaVM *NRSSL::jvm = nullptr;
 
 NRSSL::NRSSL() {
     if (!jvm) {
         JavaVMInitArgs vm_args;
-        JavaVMOption *options = new JavaVMOption[1];
+        JavaVMOption options[1];
 
         char *jarsPath = getenv("NRSSL_JARS");
         if (jarsPath == nullptr) {
@@ -35,7 +38,6 @@ NRSSL::NRSSL() {
             std::cerr << "Failed to create Java VM with error code: " << ret << std::endl;
 
         delete[] options[0].optionString;
-        delete[] options;
     } else {
         if (jvm->GetEnv((void **)&env, JNI_VERSION_10) != JNI_OK) {
             if (jvm->AttachCurrentThread((void **)&env, nullptr) != JNI_OK) {
@@ -61,8 +63,8 @@ void NRSSL::shutdown() {
     }
 }
 
-jclass NRSSL::initializeJClass(const char *class_name) {
-    jclass clazz = env->FindClass(class_name);
+jclass NRSSL::initializeJClass(std::string class_name) {
+    jclass clazz = env->FindClass(class_name.c_str());
     if (clazz == nullptr) {
         std::cerr << "Failed to find " << class_name << std::endl;
         if (env->ExceptionCheck()) {
@@ -75,10 +77,11 @@ jclass NRSSL::initializeJClass(const char *class_name) {
     return clazz;
 }
 
-jmethodID NRSSL::getJMethod(jclass clazz, const char *method_name, const char *signature,
+jmethodID NRSSL::getJMethod(jclass clazz, std::string method_name, std::string signature,
                             bool is_static) {
-    jmethodID method = is_static ? env->GetStaticMethodID(clazz, method_name, signature)
-                                 : env->GetMethodID(clazz, method_name, signature);
+    jmethodID method = is_static
+                           ? env->GetStaticMethodID(clazz, method_name.c_str(), signature.c_str())
+                           : env->GetMethodID(clazz, method_name.c_str(), signature.c_str());
     if (method == nullptr) {
         std::cerr << "Failed to find \"" << method_name << "\" sig: " << signature << std::endl;
         if (env->ExceptionCheck()) {
@@ -91,107 +94,28 @@ jmethodID NRSSL::getJMethod(jclass clazz, const char *method_name, const char *s
     return method;
 }
 
-uint64_t NRSSL::convertDoubleTo64Type(double value, Type type) { return 0; }
+std::string NRSSL::createSignature(std::string returnType,
+                                   std::initializer_list<std::string> args) {
 
-uint32_t NRSSL::convertFloatTo32Type(float value, Type type) {
+    static const std::vector<std::string> primitives = {
+        JNI_TYPES::VOID, JNI_TYPES::BOOLEAN, JNI_TYPES::INT,   JNI_TYPES::SHORT,
+        JNI_TYPES::BYTE, JNI_TYPES::LONG,    JNI_TYPES::FLOAT, JNI_TYPES::DOUBLE};
 
-    jclass positClass = initializeJClass(NRSSL_JNI_STRINGS::POSIT::value);
-    jclass positBClass = initializeJClass(NRSSL_JNI_STRINGS::POSITB::value);
-
-    jmethodID applyMethod =
-        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::APPLY::value,
-                   NRSSL_JNI_STRINGS::POSIT::APPLY::FLOAT_R_POSITB::value, true);
-
-    jobject positB = env->CallObjectMethod(positClass, applyMethod, value);
-
-    jmethodID getBitsMethod =
-        getJMethod(positBClass, NRSSL_JNI_STRINGS::POSITB::TOBINARYSTRING::value,
-                   NRSSL_JNI_STRINGS::POSITB::TOBINARYSTRING::R_STRING::value);
-
-    jstring bits = (jstring)env->CallObjectMethod(positB, getBitsMethod);
-
-    const char *bitsStr = env->GetStringUTFChars(bits, nullptr);
-
-    std::cout << "Bits: " << bitsStr << std::endl;
-
-    return binaryStringToUint32(bitsStr);
-}
-
-double NRSSL::convert32TypeToDouble(uint32_t value, Type type) {
-
-    jclass positClass = initializeJClass(NRSSL_JNI_STRINGS::POSIT::value);
-    jclass positBClass = initializeJClass(NRSSL_JNI_STRINGS::POSITB::value);
-
-    jmethodID defaultRoundingMethod =
-        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::DEFAULTROUNDING::value,
-                   NRSSL_JNI_STRINGS::POSIT::DEFAULTROUNDING::R_ROUNDINGTYPE::value, true);
-
-    jmethodID defaultSizeMethod =
-        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::DEFAULTSIZE::value,
-                   NRSSL_JNI_STRINGS::POSIT::DEFAULTSIZE::R_INT::value, true);
-
-    jmethodID defaultExponentSizeMethod =
-        getJMethod(positClass, NRSSL_JNI_STRINGS::POSIT::DEFAULTEXPONENTSIZE::value,
-                   NRSSL_JNI_STRINGS::POSIT::DEFAULTEXPONENTSIZE::R_INT::value, true);
-
-    jmethodID applyMethod = getJMethod(
-        positClass, NRSSL_JNI_STRINGS::POSIT::APPLY::value,
-        NRSSL_JNI_STRINGS::POSIT::APPLY::STRING_INT_INT_ROUNDINGTYPE_R_POSIT_B::value, true);
-
-    jmethodID toDoubleMethod = getJMethod(positBClass, NRSSL_JNI_STRINGS::POSITB::TODOUBLE::value,
-                                          NRSSL_JNI_STRINGS::POSITB::TODOUBLE::R_DOUBLE::value);
-
-    jobject roundingType = env->CallStaticObjectMethod(positClass, defaultRoundingMethod);
-    jint size = env->CallStaticIntMethod(positClass, defaultSizeMethod);
-    jint exponentSize = env->CallStaticIntMethod(positClass, defaultExponentSizeMethod);
-
-    char binaryString[33];
-    uint32ToBinaryString(value, binaryString);
-
-    jobject posit_1 = env->CallStaticObjectMethod(
-        positClass, applyMethod, env->NewStringUTF(binaryString), exponentSize, size, roundingType);
-
-    jdouble doubleValue = env->CallDoubleMethod(posit_1, toDoubleMethod);
-
-    return doubleValue;
-}
-
-double NRSSL::convert64TypeToDouble(uint64_t value, Type type) { return 0; }
-
-uint64_t NRSSL::binaryStringToUint64(const char *binaryString) {
-    if (strlen(binaryString) > 64) {
-        std::cerr << "Binary string is longer than 64 bits" << std::endl;
-        exit(1);
+    std::string signature = "(";
+    for (auto &arg : args) {
+        if (std::find(primitives.begin(), primitives.end(), arg) == primitives.end()) {
+            signature += "L";
+            signature += arg;
+            signature += ";";
+        } else
+            signature += arg;
     }
 
-    uint64_t value = 0;
-    for (int i = 0; i < strlen(binaryString); i++) {
-        value = (value << 1) | (binaryString[i] - '0');
-    }
+    signature += ")";
 
-    return value;
-}
+    signature += std::find(primitives.begin(), primitives.end(), returnType) != primitives.end()
+                     ? returnType
+                     : "L" + returnType + ";";
 
-uint32_t NRSSL::binaryStringToUint32(const char *binaryString) {
-    if (strlen(binaryString) > 32) {
-        std::cerr << "Binary string is longer than 32 bits" << std::endl;
-        exit(1);
-    }
-
-    uint32_t value = binaryStringToUint64(binaryString);
-    return value;
-}
-
-void NRSSL::uint32ToBinaryString(uint32_t value, char *binaryString) {
-    for (int i = 31; i >= 0; i--) {
-        binaryString[31 - i] = ((value >> i) & 1) + '0';
-    }
-    binaryString[32] = '\0';
-}
-
-void NRSSL::uint64ToBinaryString(uint64_t value, char *binaryString) {
-    for (int i = 63; i >= 0; i--) {
-        binaryString[63 - i] = ((value >> i) & 1) + '0';
-    }
-    binaryString[64] = '\0';
+    return signature;
 }
