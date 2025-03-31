@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <jni.h>
+#include <llvm-19/llvm/Support/Casting.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Module.h>
@@ -72,6 +74,24 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
             }
         }
 
+        for (auto &F : M) {
+            for (auto &BB : F) {
+                for (auto &I : BB) {
+                    if (auto *Store = dyn_cast<StoreInst>(&I)) {
+                        std::cout << "StoreInst\n";
+                        Value *Value = Store->getValueOperand();
+                        if (ConstantFP *FpConst = dyn_cast<ConstantFP>(Value)) {
+                            Constant *PositConst = convertConstantFP(FpConst, M.getContext());
+                            if (PositConst && PositConst != FpConst) {
+                                Store->setOperand(0, PositConst);
+                                Modified = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return Modified ? PreservedAnalyses::none() : PreservedAnalyses::all();
     }
 
@@ -88,7 +108,7 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
             float IeeeValue;
             memcpy(&IeeeValue, OldBits.getRawData(), sizeof(float));
 
-            uint32_t PositValue = nrssl.convertDoubleToUint<uint32_t>(IeeeValue, POSIT);
+            uint32_t PositValue = nrssl.convertDoubleToUint<uint32_t>(IeeeValue, NRSSL::POSIT);
             APInt NewBits(32, PositValue);
 
             APFloat NewAPF(APFloat::IEEEsingle(), NewBits);
@@ -99,7 +119,7 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
             double IeeeValue;
             memcpy(&IeeeValue, OldBits.getRawData(), sizeof(double));
 
-            uint64_t PositValue = nrssl.convertDoubleToUint<uint64_t>(IeeeValue, POSIT);
+            uint64_t PositValue = nrssl.convertDoubleToUint<uint64_t>(IeeeValue, NRSSL::POSIT);
             APInt NewBits(64, PositValue);
 
             APFloat NewAPF(APFloat::IEEEdouble(), NewBits);

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <jni.h>
 #include <string>
+#include <tuple>
 #include <vector>
 
 JavaVM *NRSSL::jvm = nullptr;
@@ -118,4 +119,42 @@ std::string NRSSL::createSignature(std::string returnType,
                      : "L" + returnType + ";";
 
     return signature;
+}
+
+std::tuple<std::unordered_map<int, int>, std::string, std::string>
+NRSSL::getTypeProperties(NRSSL::Type type) {
+
+    std::unordered_map<int, int> currentNrsSizeMap;
+    std::string currentNrsClassPath;
+    std::string currentNrsClassBPath;
+
+    switch (type) {
+    case POSIT:
+        currentNrsSizeMap = sizeToExpSize;
+        currentNrsClassPath = JNI_TYPES::POSIT;
+        currentNrsClassBPath = JNI_TYPES::POSIT_B;
+        break;
+    case MORRIS:
+        currentNrsSizeMap = sizeToGSizeMorris;
+        currentNrsClassPath = JNI_TYPES::MORRIS;
+        currentNrsClassBPath = JNI_TYPES::MORRIS_B;
+        break;
+    case MORRIS_HEB:
+        currentNrsSizeMap = sizeToGSizeMorris;
+        currentNrsClassPath = JNI_TYPES::MORRIS_HEB;
+        currentNrsClassBPath = JNI_TYPES::MORRIS_HEB_B;
+        break;
+    case MORRIS_BIAS_HEB:
+        currentNrsSizeMap = sizeToGSizeMorris;
+        currentNrsClassPath = JNI_TYPES::MORRIS_BIAS_HEB;
+        currentNrsClassBPath = JNI_TYPES::MORRIS_BIAS_HEB_B;
+        break;
+    case MORRIS_UNARY_HEB:
+        currentNrsSizeMap = sizeToGSizeMorris;
+        currentNrsClassPath = JNI_TYPES::MORRIS_UNARY_HEB;
+        currentNrsClassBPath = JNI_TYPES::MORRIS_UNARY_HEB_B;
+        break;
+    }
+
+    return std::make_tuple(currentNrsSizeMap, currentNrsClassPath, currentNrsClassBPath);
 }

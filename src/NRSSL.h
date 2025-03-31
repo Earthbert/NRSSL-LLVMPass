@@ -3,8 +3,43 @@
 
 #include <jni.h>
 #include <string>
+#include <unordered_map>
 
-enum Type { POSIT };
+namespace JNI_TYPES {
+std::string const VOID = "V";
+std::string const BOOLEAN = "Z";
+std::string const INT = "I";
+std::string const SHORT = "S";
+std::string const BYTE = "B";
+std::string const LONG = "J";
+std::string const FLOAT = "F";
+std::string const DOUBLE = "D";
+
+std::string const STRING = "java/lang/String";
+std::string const OBJECT = "java/lang/Object";
+
+std::string const POSIT = "ro/upb/nrs/sl/Posit";
+std::string const POSIT_B = "ro/upb/nrs/sl/Posit_B";
+std::string const MORRIS = "ro/upb/nrs/sl/Morris";
+std::string const MORRIS_B = "ro/upb/nrs/sl/Morris_B";
+std::string const MORRIS_HEB = "ro/upb/nrs/sl/MorrisHeb";
+std::string const MORRIS_HEB_B = "ro/upb/nrs/sl/MorrisHeb_B";
+std::string const MORRIS_BIAS_HEB = "ro/upb/nrs/sl/MorrisBiasHeb";
+std::string const MORRIS_BIAS_HEB_B = "ro/upb/nrs/sl/MorrisBiasHeb_B";
+std::string const MORRIS_UNARY_HEB = "ro/upb/nrs/sl/MorrisUnaryHeb";
+std::string const MORRIS_UNARY_HEB_B = "ro/upb/nrs/sl/MorrisUnaryHeb_B";
+std::string const ROUNDING_TYPE = "ro/upb/nrs/sl/RoundingType";
+} // namespace JNI_TYPES
+
+namespace JNI_METHODS {
+std::string const APPLY = "apply";
+std::string const TO_BINARY_STRING = "toBinaryString";
+std::string const TO_DOUBLE = "toDouble";
+
+std::string const DEFAULTROUNDING = "default_rounding";
+std::string const DEFAULTSIZE = "default_size";
+std::string const DEFAULTEXPSIZE = "default_exponent_size";
+} // namespace JNI_METHODS
 
 class NRSSL {
 
@@ -13,9 +48,24 @@ class NRSSL {
 
     bool shouldDetach = false;
 
+    const std::unordered_map<int, int> sizeToExpSize = {{8, 2}, {16, 3}, {32, 4}, {64, 6}};
+    const std::unordered_map<int, int> sizeToGSizeMorris = {{8, 2}, {16, 3}, {32, 4}, {64, 6}};
+
+    std::reference_wrapper<const std::string> currentNrsClassPath = JNI_TYPES::POSIT;
+    std::reference_wrapper<const std::string> currentNrsClassBPath = JNI_TYPES::POSIT_B;
+    std::reference_wrapper<const std::unordered_map<int, int>> currentNrsSizeMap = sizeToExpSize;
+
   public:
     NRSSL();
     ~NRSSL();
+
+    enum Type {
+        POSIT,
+        MORRIS,
+        MORRIS_HEB,
+        MORRIS_UNARY_HEB,
+        MORRIS_BIAS_HEB,
+    };
 
     static void shutdown();
 
@@ -41,35 +91,10 @@ class NRSSL {
                          bool is_static = false);
 
     std::string createSignature(std::string returnType, std::initializer_list<std::string> args);
+
+    std::tuple<std::unordered_map<int, int>, std::string, std::string>
+    getTypeProperties(NRSSL::Type type);
 };
-
-namespace JNI_TYPES {
-std::string const VOID = "V";
-std::string const BOOLEAN = "Z";
-std::string const INT = "I";
-std::string const SHORT = "S";
-std::string const BYTE = "B";
-std::string const LONG = "J";
-std::string const FLOAT = "F";
-std::string const DOUBLE = "D";
-
-std::string const STRING = "java/lang/String";
-std::string const OBJECT = "java/lang/Object";
-
-std::string const POSIT = "ro/upb/nrs/sl/Posit";
-std::string const POSIT_B = "ro/upb/nrs/sl/Posit_B";
-std::string const ROUNDING_TYPE = "ro/upb/nrs/sl/RoundingType";
-} // namespace JNI_TYPES
-
-namespace JNI_METHODS {
-std::string const APPLY = "apply";
-std::string const TO_BINARY_STRING = "toBinaryString";
-std::string const TO_DOUBLE = "toDouble";
-
-std::string const DEFAULTROUNDING = "default_rounding";
-std::string const DEFAULTSIZE = "default_size";
-std::string const DEFAULTEXPSIZE = "default_exponent_size";
-} // namespace JNI_METHODS
 
 #include "NRSSL.tpp"
 

@@ -2,27 +2,46 @@
 #define NRSSL_TPP
 
 #include "NRSSL.h"
+#include "jni.h"
 #include <iostream>
 #include <limits>
 #include <type_traits>
 
 template <typename T>
-typename std::enable_if<std::is_unsigned<T>::value, T>::type NRSSL::convertDoubleToUint(double value,
-                                                                                        Type type) {
+typename std::enable_if<std::is_unsigned<T>::value, T>::type
+NRSSL::convertDoubleToUint(double value, Type type) {
 
-    jclass positClass = initializeJClass(JNI_TYPES::POSIT);
-    jclass positBClass = initializeJClass(JNI_TYPES::POSIT_B);
+    auto [currentNrsSizeMap, currentNrsClassPath, currentNrsClassBPath] = getTypeProperties(type);
+
+    if (currentNrsSizeMap.find(sizeof(T) * 8) == currentNrsSizeMap.end()) {
+        std::cerr << "Unsupported size: " << sizeof(T) << std::endl;
+        exit(1);
+    }
+
+    jclass nrsClass = initializeJClass(currentNrsClassPath);
+    jclass nrsClassB = initializeJClass(currentNrsClassBPath);
+
+    jmethodID defaultRoundingMethod =
+        getJMethod(nrsClass, JNI_METHODS::DEFAULTROUNDING,
+                   createSignature(JNI_TYPES::ROUNDING_TYPE, {}), true);
 
     jmethodID applyMethod =
-        getJMethod(positClass, JNI_METHODS::APPLY,
-                   createSignature(JNI_TYPES::POSIT_B, {JNI_TYPES::DOUBLE}), true);
+        getJMethod(nrsClass, JNI_METHODS::APPLY,
+                   createSignature(JNI_TYPES::POSIT_B, {JNI_TYPES::DOUBLE, JNI_TYPES::INT,
+                                                        JNI_TYPES::INT, JNI_TYPES::ROUNDING_TYPE}),
+                   true);
 
-    jobject positB = env->CallObjectMethod(positClass, applyMethod, value);
+    jobject roundingType = env->CallStaticObjectMethod(nrsClass, defaultRoundingMethod);
+    int size = sizeof(T) * 8;
+    int exponentSize = currentNrsSizeMap.at(size);
 
-    jmethodID getBitsMethod = getJMethod(positBClass, JNI_METHODS::TO_BINARY_STRING,
+    jobject nrsB =
+        env->CallObjectMethod(nrsClass, applyMethod, value, exponentSize, size, roundingType);
+
+    jmethodID getBitsMethod = getJMethod(nrsClassB, JNI_METHODS::TO_BINARY_STRING,
                                          createSignature(JNI_TYPES::STRING, {}), false);
 
-    jstring bits = (jstring)env->CallObjectMethod(positB, getBitsMethod);
+    jstring bits = (jstring)env->CallObjectMethod(nrsB, getBitsMethod);
 
     const char *bitsStr = env->GetStringUTFChars(bits, nullptr);
 
@@ -34,37 +53,38 @@ typename std::enable_if<std::is_unsigned<T>::value, T>::type NRSSL::convertDoubl
 template <typename T, typename std::enable_if<std::is_unsigned<T>::value, bool>::type>
 double NRSSL::convertUintToDouble(T value, Type type) {
 
-    jclass positClass = initializeJClass(JNI_TYPES::POSIT);
-    jclass positBClass = initializeJClass(JNI_TYPES::POSIT_B);
+    auto [currentNrsSizeMap, currentNrsClassPath, currentNrsClassBPath] = getTypeProperties(type);
+
+    if (currentNrsSizeMap.find(sizeof(T) * 8) == currentNrsSizeMap.end()) {
+        std::cerr << "Unsupported size: " << sizeof(T) << std::endl;
+        exit(1);
+    }
+
+    jclass nrsClass = initializeJClass(currentNrsClassPath);
+    jclass nrsClassB = initializeJClass(currentNrsClassBPath);
 
     jmethodID defaultRoundingMethod =
-        getJMethod(positClass, JNI_METHODS::DEFAULTROUNDING,
+        getJMethod(nrsClass, JNI_METHODS::DEFAULTROUNDING,
                    createSignature(JNI_TYPES::ROUNDING_TYPE, {}), true);
 
-    jmethodID defaultSizeMethod =
-        getJMethod(positClass, JNI_METHODS::DEFAULTSIZE, createSignature(JNI_TYPES::INT, {}), true);
+    jmethodID applyMethod = getJMethod(
+        nrsClass, JNI_METHODS::APPLY,
+        createSignature(currentNrsClassBPath, {JNI_TYPES::STRING, JNI_TYPES::INT, JNI_TYPES::INT,
+                                               JNI_TYPES::ROUNDING_TYPE}),
+        true);
 
-    jmethodID defaultExponentSizeMethod = getJMethod(positClass, JNI_METHODS::DEFAULTEXPSIZE,
-                                                     createSignature(JNI_TYPES::INT, {}), true);
+    jmethodID toDoubleMethod =
+        getJMethod(nrsClassB, JNI_METHODS::TO_DOUBLE, createSignature(JNI_TYPES::DOUBLE, {}));
 
-    jmethodID applyMethod =
-        getJMethod(positClass, JNI_METHODS::APPLY,
-                   createSignature(JNI_TYPES::POSIT_B, {JNI_TYPES::STRING, JNI_TYPES::INT,
-                                                        JNI_TYPES::INT, JNI_TYPES::ROUNDING_TYPE}),
-                   true);
-
-    jmethodID toDoubleMethod = getJMethod(positBClass, JNI_METHODS::TO_DOUBLE,
-                                          createSignature(JNI_TYPES::DOUBLE, {}));
-
-    jobject roundingType = env->CallStaticObjectMethod(positClass, defaultRoundingMethod);
-    jint size = env->CallStaticIntMethod(positClass, defaultSizeMethod);
-    jint exponentSize = env->CallStaticIntMethod(positClass, defaultExponentSizeMethod);
+    jobject roundingType = env->CallStaticObjectMethod(nrsClass, defaultRoundingMethod);
+    int size = sizeof(T) * 8;
+    int exponentSize = currentNrsSizeMap.at(size);
 
     auto binaryString = UintToBinaryString(value);
 
-    jobject posit_1 = env->CallStaticObjectMethod(positClass, applyMethod,
-                                                  env->NewStringUTF(binaryString.c_str()),
-                                                  exponentSize, size, roundingType);
+    jobject posit_1 =
+        env->CallStaticObjectMethod(nrsClass, applyMethod, env->NewStringUTF(binaryString.c_str()),
+                                    exponentSize, size, roundingType);
 
     jdouble doubleValue = env->CallDoubleMethod(posit_1, toDoubleMethod);
 
