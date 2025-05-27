@@ -20,12 +20,12 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
     NRSSL nrssl;
 
   public:
-    IEEEToPositPass() { errs() << "Creating IEEEToPositPass\n"; }
+    IEEEToPositPass() { std::cout << "Creating IEEEToPositPass\n"; }
 
-    ~IEEEToPositPass() { errs() << "Destroying IEEEToPositPass\n"; }
+    ~IEEEToPositPass() { std::cout << "Destroying IEEEToPositPass\n"; }
 
     PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM) {
-        errs() << "Running IEEEToPositPass on " << M.getName().str() << "\n";
+        std::cout << "Running IEEEToPositPass on " << M.getName().str() << "\n";
 
         bool Modified = false;
 
@@ -132,14 +132,24 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
 
 PassPluginLibraryInfo getIEEEToPositPassPluginInfo() {
     return {LLVM_PLUGIN_API_VERSION, "IEEEToPositPass", LLVM_VERSION_STRING, [](PassBuilder &PB) {
+                // For clang integration - adds the pass at the start of the pipeline
+                PB.registerPipelineStartEPCallback(
+                    [](ModulePassManager &MPM, llvm::OptimizationLevel Level) {
+                        std::cout << "Starting pipeline for IEEEToPositPass\n";
+                        MPM.addPass(IEEEToPositPass());
+                    });
+
+                // For opt integration - allows the pass to be found by name
                 PB.registerPipelineParsingCallback([](StringRef Name, ModulePassManager &MPM,
                                                       ArrayRef<PassBuilder::PipelineElement>) {
                     if (Name == "ieee-to-posit") {
+                        std::cout << "Adding IEEEToPositPass to pipeline\n";
                         MPM.addPass(IEEEToPositPass());
                         return true;
                     }
                     return false;
                 });
+
                 std::atexit(IEEEToPositPass::nrsslShutdown);
             }};
 }
