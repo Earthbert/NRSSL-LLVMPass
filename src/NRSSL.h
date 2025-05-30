@@ -48,7 +48,7 @@ class NRSSL {
 
     bool shouldDetach = false;
 
-    const std::unordered_map<int, int> sizeToExpSize = {{8, 2}, {16, 3}, {32, 4}, {64, 6}};
+    const std::unordered_map<int, int> sizeToExpSize = {{8, 2}, {16, 2}, {32, 2}, {64, 2}};
     const std::unordered_map<int, int> sizeToGSizeMorris = {{8, 2}, {16, 3}, {32, 4}, {64, 6}};
 
     std::reference_wrapper<const std::string> currentNrsClassPath = JNI_TYPES::POSIT;
