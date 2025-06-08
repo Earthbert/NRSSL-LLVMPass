@@ -30,46 +30,14 @@ class NRSConversionPass : public PassInfoMixin<NRSConversionPass> {
         bool Modified = false;
 
         for (auto &Global : M.globals()) {
-
             if (Global.hasInitializer()) {
                 Constant *Initializer = Global.getInitializer();
+                std::cout << "Processing global variable: " << Global.getName().str() << "\n";
 
-                if (ConstantFP *FpConst = dyn_cast<ConstantFP>(Initializer)) {
-                    Constant *PositConst = convertConstantFP(FpConst, M.getContext());
-                    if (PositConst && PositConst != FpConst) {
-                        Global.setInitializer(PositConst);
-                        Modified = true;
-                    }
-                }
-
-                else if (ConstantDataArray *ArrayConst = dyn_cast<ConstantDataArray>(Initializer)) {
-                    if (ArrayConst->getType()->getElementType()->isFloatingPointTy()) {
-                        SmallVector<Constant *, 16> ConvertedElements;
-                        bool ArrayModified = false;
-
-                        for (unsigned i = 0; i < ArrayConst->getNumElements(); ++i) {
-                            if (ConstantFP *FpElement =
-                                    dyn_cast<ConstantFP>(ArrayConst->getElementAsConstant(i))) {
-                                Constant *PositElement =
-                                    convertConstantFP(FpElement, M.getContext());
-                                if (PositElement && PositElement != FpElement) {
-                                    ConvertedElements.push_back(PositElement);
-                                    ArrayModified = true;
-                                } else {
-                                    ConvertedElements.push_back(FpElement);
-                                }
-                            } else {
-                                ConvertedElements.push_back(ArrayConst->getElementAsConstant(i));
-                            }
-                        }
-
-                        if (ArrayModified) {
-                            Constant *NewArrayConst =
-                                ConstantArray::get(ArrayConst->getType(), ConvertedElements);
-                            Global.setInitializer(NewArrayConst);
-                            Modified = true;
-                        }
-                    }
+                Constant *NewInitializer = processConstant(Initializer, M.getContext());
+                if (NewInitializer != Initializer) {
+                    Global.setInitializer(NewInitializer);
+                    Modified = true;
                 }
             }
         }
@@ -78,12 +46,11 @@ class NRSConversionPass : public PassInfoMixin<NRSConversionPass> {
             for (auto &BB : F) {
                 for (auto &I : BB) {
                     if (auto *Store = dyn_cast<StoreInst>(&I)) {
-                        std::cout << "StoreInst\n";
                         Value *Value = Store->getValueOperand();
-                        if (ConstantFP *FpConst = dyn_cast<ConstantFP>(Value)) {
-                            Constant *PositConst = convertConstantFP(FpConst, M.getContext());
-                            if (PositConst && PositConst != FpConst) {
-                                Store->setOperand(0, PositConst);
+                        if (auto *Const = dyn_cast<Constant>(Value)) {
+                            Constant *NewConst = processConstant(Const, M.getContext());
+                            if (NewConst != Const) {
+                                Store->setOperand(0, NewConst);
                                 Modified = true;
                             }
                         }
@@ -127,6 +94,47 @@ class NRSConversionPass : public PassInfoMixin<NRSConversionPass> {
         }
 
         return nullptr;
+    }
+
+    Constant *processConstant(Constant *C, LLVMContext &Context) {
+
+        std::cout << "Processing constant" << "\n";
+        
+        if (ConstantFP *FpConst = dyn_cast<ConstantFP>(C)) {
+            return convertConstantFP(FpConst, Context);
+        }
+
+        if (ConstantDataArray *DataArrayConst = dyn_cast<ConstantDataArray>(C)) {
+            std::cout << "Processing ConstantDataArray with " << DataArrayConst->getNumElements() << " elements\n";
+            std::vector<Constant *> NewElements;
+            for (int i = 0; i < DataArrayConst->getNumElements(); ++i) {
+                Constant *Elem = DataArrayConst->getElementAsConstant(i);
+                Constant *NewElem = processConstant(Elem, Context);
+                if (NewElem != Elem) {
+                    NewElements.push_back(NewElem);
+                } else {
+                    NewElements.push_back(Elem);
+                }
+            }
+            return ConstantArray::get(DataArrayConst->getType(), NewElements);
+        }
+        
+        if (ConstantArray *ArrConst = dyn_cast<ConstantArray>(C)) {
+            std::cout << "Processing ConstantArray with " << ArrConst->getNumOperands() << " elements\n";
+            std::vector<Constant *> NewElements;
+            for (int i = 0; i < ArrConst->getNumOperands(); ++i) {
+                Constant *Elem = ArrConst->getOperand(i);
+                Constant *NewElem = processConstant(Elem, Context);
+                if (NewElem != Elem) {
+                    NewElements.push_back(NewElem);
+                } else {
+                    NewElements.push_back(Elem);
+                }
+            }
+            return ConstantArray::get(ArrConst->getType(), NewElements);
+        }
+
+        return C;
     }
 };
 
