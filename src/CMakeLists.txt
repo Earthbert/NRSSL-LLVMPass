@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(IEEEToPosit LANGUAGES CXX)
+project(NRSConversionPass LANGUAGES CXX)
 
 SET(CMAKE_CXX_FLAGS "-Wall -fno-rtti -fPIC")
 
@@ -15,7 +15,7 @@ find_package(JNI REQUIRED)
 include_directories(${JNI_INCLUDE_DIRS})
 
 # Add the LLVM pass
-add_library(IEEEToPosit MODULE IEEEToPositPass.cpp NRSSL.cpp)
+add_library(NRSConversionPass MODULE NRSConversionPass.cpp NRSSL.cpp)
 
 # Generate LLVM IR from C file
 add_custom_command(
@@ -31,11 +31,11 @@ add_custom_command(
     COMMAND "NRSSL_JARS=${NRSSL_PATH}"
             "LD_PRELOAD=$ENV{JAVA_HOME}/lib/server/libjvm.so"
             "opt"
-            "-load-pass-plugin=${CMAKE_CURRENT_BINARY_DIR}/libIEEEToPosit.so"
+            "-load-pass-plugin=${CMAKE_CURRENT_BINARY_DIR}/libNRSConversionPass.so"
             "-passes=ieee-to-posit"
             "-S" "sample.ll"
             "-o" "processed.ll"
-    DEPENDS sample.ll IEEEToPosit
+    DEPENDS sample.ll NRSConversionPass
     COMMENT "Running LLVM pass on sample.ll"
 )
 

@@ -15,17 +15,17 @@
 
 using namespace llvm;
 
-class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
+class NRSConversionPass : public PassInfoMixin<NRSConversionPass> {
 
     NRSSL nrssl;
 
   public:
-    IEEEToPositPass() { std::cout << "Creating IEEEToPositPass\n"; }
+    NRSConversionPass() { std::cout << "Creating NRSConversionPass\n"; }
 
-    ~IEEEToPositPass() { std::cout << "Destroying IEEEToPositPass\n"; }
+    ~NRSConversionPass() { std::cout << "Destroying NRSConversionPass\n"; }
 
     PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM) {
-        std::cout << "Running IEEEToPositPass on " << M.getName().str() << "\n";
+        std::cout << "Running NRSConversionPass on " << M.getName().str() << "\n";
 
         bool Modified = false;
 
@@ -130,30 +130,30 @@ class IEEEToPositPass : public PassInfoMixin<IEEEToPositPass> {
     }
 };
 
-PassPluginLibraryInfo getIEEEToPositPassPluginInfo() {
-    return {LLVM_PLUGIN_API_VERSION, "IEEEToPositPass", LLVM_VERSION_STRING, [](PassBuilder &PB) {
+PassPluginLibraryInfo getNRSConversionPassPluginInfo() {
+    return {LLVM_PLUGIN_API_VERSION, "NRSConversionPass", LLVM_VERSION_STRING, [](PassBuilder &PB) {
                 // For clang integration - adds the pass at the start of the pipeline
                 PB.registerPipelineStartEPCallback(
                     [](ModulePassManager &MPM, llvm::OptimizationLevel Level) {
-                        std::cout << "Starting pipeline for IEEEToPositPass\n";
-                        MPM.addPass(IEEEToPositPass());
+                        std::cout << "Starting pipeline for NRSConversionPass\n";
+                        MPM.addPass(NRSConversionPass());
                     });
 
                 // For opt integration - allows the pass to be found by name
                 PB.registerPipelineParsingCallback([](StringRef Name, ModulePassManager &MPM,
                                                       ArrayRef<PassBuilder::PipelineElement>) {
                     if (Name == "ieee-to-posit") {
-                        std::cout << "Adding IEEEToPositPass to pipeline\n";
-                        MPM.addPass(IEEEToPositPass());
+                        std::cout << "Adding NRSConversionPass to pipeline\n";
+                        MPM.addPass(NRSConversionPass());
                         return true;
                     }
                     return false;
                 });
 
-                std::atexit(IEEEToPositPass::nrsslShutdown);
+                std::atexit(NRSConversionPass::nrsslShutdown);
             }};
 }
 
 extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo llvmGetPassPluginInfo() {
-    return getIEEEToPositPassPluginInfo();
+    return getNRSConversionPassPluginInfo();
 }
