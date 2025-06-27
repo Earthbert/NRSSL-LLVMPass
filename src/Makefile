@@ -6,7 +6,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 $(BUILD_DIR)/Makefile: CMakeLists.txt | $(BUILD_DIR)
-	cd $(BUILD_DIR) && cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug
+	cd $(BUILD_DIR) && cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DLLVM_DIR=$(shell llvm-config-19 --cmakedir)
 
 build_all: $(BUILD_DIR)/Makefile
 	$(MAKE) -C $(BUILD_DIR)

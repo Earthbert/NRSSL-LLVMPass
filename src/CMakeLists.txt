@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
-project(NRSConversionPass LANGUAGES CXX)
+
+set(CMAKE_C_COMPILER clang-19)
+set(CMAKE_CXX_COMPILER clang++-19)
+
+project(NRSConversionPass LANGUAGES CXX C)
 
 SET(CMAKE_CXX_FLAGS "-Wall -fno-rtti -fPIC")
 
@@ -20,7 +24,7 @@ add_library(NRSConversionPass MODULE NRSConversionPass.cpp NRSSL.cpp)
 # Generate LLVM IR from C file
 add_custom_command(
     OUTPUT sample.ll
-    COMMAND clang -S -emit-llvm ${CMAKE_SOURCE_DIR}/test/sample.c -o sample.ll
+    COMMAND ${CMAKE_C_COMPILER} -S -emit-llvm ${CMAKE_SOURCE_DIR}/test/sample.c -o sample.ll
     DEPENDS ${CMAKE_SOURCE_DIR}/test/sample.c
     COMMENT "Generating LLVM IR from sample.c"
 )
@@ -30,7 +34,7 @@ add_custom_command(
     OUTPUT processed.ll
     COMMAND "NRSSL_JARS=${NRSSL_PATH}"
             "LD_PRELOAD=$ENV{JAVA_HOME}/lib/server/libjvm.so"
-            "opt"
+            "${LLVM_TOOLS_BINARY_DIR}/opt"
             "-load-pass-plugin=${CMAKE_CURRENT_BINARY_DIR}/libNRSConversionPass.so"
             "-passes=ieee-to-posit"
             "-S" "sample.ll"

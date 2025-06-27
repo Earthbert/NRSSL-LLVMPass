@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <jni.h>
-#include <llvm-19/llvm/Support/Casting.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Module.h>
